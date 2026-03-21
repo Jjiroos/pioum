@@ -59,7 +59,6 @@ export async function notifyUser(
       options: {
         ttl: 3600,
         urgency: 'normal',
-        topic: 'pioum-session',
       },
       adminContact: process.env.VAPID_EMAIL!,
     },

@@ -4,12 +4,12 @@ export function NotificationBell() {
   const { isSubscribed, isLoading, error, permission, subscribe, unsubscribe } =
     usePushNotifications()
 
-  // Navigateur non compatible
-  if (!('Notification' in window) || !('serviceWorker' in navigator)) return null
-
-  // PWA non installée sur iOS — Push non disponible
+  // PWA non installée sur iOS — Push non disponible (avant le check compatibilité
+  // car WKWebView n'expose pas Notification ni serviceWorker)
+  // isIOS combine UA (mode normal) et 'standalone' in navigator (mode "version ordinateur"
+  // où le UA devient desktop mais la propriété WebKit reste présente)
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || 'standalone' in navigator
   if (isIOS && !isStandalone) {
     return (
       <p className="text-sm text-primary-600">
@@ -17,6 +17,9 @@ export function NotificationBell() {
       </p>
     )
   }
+
+  // Navigateur non compatible (après le check iOS pour éviter return null prématuré)
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) return null
 
   if (permission === 'denied') {
     return (

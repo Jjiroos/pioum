@@ -239,9 +239,9 @@ export function ProfilePage() {
       <div className="card p-6 mb-6">
         <h2 className="text-xl font-bold text-primary-800 mb-4">Notifications</h2>
         <p className="text-sm text-primary-600 mb-4">
-          Reçois une notification quand un membre s'inscrit à une séance.
+          Active les notifications pour recevoir des mises à jour sur les événements de tes groupes.
         </p>
-        <NotificationBell />
+        <NotificationBell/>
       </div>
 
       {/* Logout */}
