@@ -27,13 +27,14 @@ vi.mock('../notifications/notification.service.js', () => ({
 
 import { prisma } from '../lib/prisma.js'
 import { notifyGroupMembers } from '../notifications/notification.service.js'
+import { makeRes, makeReq, asRes } from './test-utils.js'
 
-const mockSessionFindUnique = prisma.session.findUnique as unknown as ReturnType<typeof vi.fn>
-const mockGroupMemberFindUnique = prisma.groupMember.findUnique as unknown as ReturnType<typeof vi.fn>
-const mockPassengerFindUnique = prisma.passenger.findUnique as unknown as ReturnType<typeof vi.fn>
-const mockPassengerCreate = prisma.passenger.create as unknown as ReturnType<typeof vi.fn>
-const mockUserFindUnique = prisma.user.findUnique as unknown as ReturnType<typeof vi.fn>
-const mockNotifyGroupMembers = notifyGroupMembers as ReturnType<typeof vi.fn>
+const mockSessionFindUnique = vi.mocked(prisma.session.findUnique)
+const mockGroupMemberFindUnique = vi.mocked(prisma.groupMember.findUnique)
+const mockPassengerFindUnique = vi.mocked(prisma.passenger.findUnique)
+const mockPassengerCreate = vi.mocked(prisma.passenger.create)
+const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
+const mockNotifyGroupMembers = vi.mocked(notifyGroupMembers)
 
 // Future session (not locked)
 const futureSession = {
@@ -51,13 +52,6 @@ const lockedSession = {
 
 const memberRole = { role: 'member' }
 const adminRole = { role: 'admin' }
-
-function makeRes() {
-  const res = { status: vi.fn(), json: vi.fn() }
-  res.status.mockReturnValue(res)
-  res.json.mockReturnValue(res)
-  return res
-}
 
 /**
  * Extracted handler — mirrors POST /sessions/:id/join in sessions.ts
@@ -123,12 +117,9 @@ describe('POST /sessions/:id/join — notification scénario', () => {
     mockPassengerFindUnique.mockResolvedValue(null)
     mockUserFindUnique.mockResolvedValue({ name: 'Alice' })
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-1' } })
 
-    await joinHandler(req, mockRes as unknown as Response, mockNext)
+    await joinHandler(req, asRes(mockRes), mockNext)
 
     // La réponse HTTP est immédiate
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Joined session' })
@@ -154,12 +145,9 @@ describe('POST /sessions/:id/join — notification scénario', () => {
     mockPassengerFindUnique.mockResolvedValue(null)
     mockUserFindUnique.mockResolvedValue(null) // user inconnu
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-unknown' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-unknown' } })
 
-    await joinHandler(req, mockRes as unknown as Response, mockNext)
+    await joinHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -178,12 +166,9 @@ describe('POST /sessions/:id/join — notification scénario', () => {
     mockGroupMemberFindUnique.mockResolvedValue(memberRole)
     mockPassengerFindUnique.mockResolvedValue({ id: 'passenger-existing' }) // déjà inscrit
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-1' } })
 
-    await joinHandler(req, mockRes as unknown as Response, mockNext)
+    await joinHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }))
     expect(mockNotifyGroupMembers).not.toHaveBeenCalled()
@@ -193,12 +178,9 @@ describe('POST /sessions/:id/join — notification scénario', () => {
     mockSessionFindUnique.mockResolvedValue(lockedSession)
     mockGroupMemberFindUnique.mockResolvedValue(memberRole)
 
-    const req = {
-      params: { id: 'session-2' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-2' }, user: { userId: 'user-1' } })
 
-    await joinHandler(req, mockRes as unknown as Response, mockNext)
+    await joinHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }))
     expect(mockNotifyGroupMembers).not.toHaveBeenCalled()
@@ -210,12 +192,9 @@ describe('POST /sessions/:id/join — notification scénario', () => {
     mockPassengerFindUnique.mockResolvedValue(null)
     mockUserFindUnique.mockResolvedValue({ name: 'Bob' })
 
-    const req = {
-      params: { id: 'session-2' },
-      user: { userId: 'user-2' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-2' }, user: { userId: 'user-2' } })
 
-    await joinHandler(req, mockRes as unknown as Response, mockNext)
+    await joinHandler(req, asRes(mockRes), mockNext)
 
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Joined session' })
     expect(mockNext).not.toHaveBeenCalled()
@@ -224,12 +203,9 @@ describe('POST /sessions/:id/join — notification scénario', () => {
   it("retourne 404 si la session n'existe pas", async () => {
     mockSessionFindUnique.mockResolvedValue(null)
 
-    const req = {
-      params: { id: 'session-inexistante' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-inexistante' }, user: { userId: 'user-1' } })
 
-    await joinHandler(req, mockRes as unknown as Response, mockNext)
+    await joinHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }))
   })

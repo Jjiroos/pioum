@@ -18,7 +18,7 @@ vi.mock('../notifications/notification.service.js', () => ({
 
 import { prisma } from '../lib/prisma.js'
 import { notifyUser } from '../notifications/notification.service.js'
-import { makeRes } from './test-utils.js'
+import { makeRes, makeReq, asRes } from './test-utils.js'
 
 const mockUserFindUnique = vi.mocked(prisma.user.findUnique)
 const mockBanFindFirst = vi.mocked(prisma.ban.findFirst)
@@ -115,12 +115,9 @@ describe('POST /bans — notification USER_BANNED', () => {
       .mockResolvedValueOnce(receiver)   // receiver exists check
       .mockResolvedValueOnce(giver)      // giver name for notification
 
-    const req = {
-      body: { receiverId: 'user-2', reason: 'trop de faltas', duration: '1d' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { receiverId: 'user-2', reason: 'trop de faltas', duration: '1d' }, user: { userId: 'user-1' } })
 
-    await banHandler(req, mockRes as unknown as Response, mockNext)
+    await banHandler(req, asRes(mockRes), mockNext)
 
     expect(mockRes.status).toHaveBeenCalledWith(201)
     expect(mockNext).not.toHaveBeenCalled()
@@ -143,12 +140,9 @@ describe('POST /bans — notification USER_BANNED', () => {
       .mockResolvedValueOnce(receiver)
       .mockResolvedValueOnce(giver)
 
-    const req = {
-      body: { receiverId: 'user-2', duration: '1w' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { receiverId: 'user-2', duration: '1w' }, user: { userId: 'user-1' } })
 
-    await banHandler(req, mockRes as unknown as Response, mockNext)
+    await banHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyUser).toHaveBeenCalled())
 
@@ -165,12 +159,9 @@ describe('POST /bans — notification USER_BANNED', () => {
       .mockResolvedValueOnce(receiver)
       .mockResolvedValueOnce(giver)
 
-    const req = {
-      body: { receiverId: 'user-2', reason: 'mauvaise ambiance', duration: '3d' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { receiverId: 'user-2', reason: 'mauvaise ambiance', duration: '3d' }, user: { userId: 'user-1' } })
 
-    await banHandler(req, mockRes as unknown as Response, mockNext)
+    await banHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyUser).toHaveBeenCalled())
 
@@ -187,12 +178,9 @@ describe('POST /bans — notification USER_BANNED', () => {
       .mockResolvedValueOnce(receiver)
       .mockResolvedValueOnce(null) // giver inconnu
 
-    const req = {
-      body: { receiverId: 'user-2', duration: '1d' },
-      user: { userId: 'user-unknown' },
-    } as unknown as Request
+    const req = makeReq({ body: { receiverId: 'user-2', duration: '1d' }, user: { userId: 'user-unknown' } })
 
-    await banHandler(req, mockRes as unknown as Response, mockNext)
+    await banHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyUser).toHaveBeenCalled())
 
@@ -207,12 +195,9 @@ describe('POST /bans — notification USER_BANNED', () => {
   it("n'envoie pas de notification si le banni n'existe pas (404)", async () => {
     mockUserFindUnique.mockResolvedValueOnce(null)
 
-    const req = {
-      body: { receiverId: 'user-inexistant', duration: '1d' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { receiverId: 'user-inexistant', duration: '1d' }, user: { userId: 'user-1' } })
 
-    await banHandler(req, mockRes as unknown as Response, mockNext)
+    await banHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }))
     expect(mockNotifyUser).not.toHaveBeenCalled()
@@ -222,12 +207,9 @@ describe('POST /bans — notification USER_BANNED', () => {
     mockUserFindUnique.mockResolvedValueOnce(receiver)
     mockBanFindFirst.mockResolvedValue({ id: 'existing-ban' })
 
-    const req = {
-      body: { receiverId: 'user-2', duration: '1d' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { receiverId: 'user-2', duration: '1d' }, user: { userId: 'user-1' } })
 
-    await banHandler(req, mockRes as unknown as Response, mockNext)
+    await banHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }))
     expect(mockNotifyUser).not.toHaveBeenCalled()

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Request, Response, NextFunction } from 'express'
+import { NextFunction } from 'express'
 import '../middleware/auth.js'
 
 vi.mock('../lib/prisma.js', () => ({
@@ -19,7 +19,7 @@ vi.mock('../notifications/notification.service.js', () => ({
 
 import { prisma } from '../lib/prisma.js'
 import { notifyGroupMembers } from '../notifications/notification.service.js'
-import { makeRes } from './test-utils.js'
+import { makeRes, makeReq, asRes } from './test-utils.js'
 import { addCarHandler } from './cars.js'
 
 const mockSessionFindUnique = vi.mocked(prisma.session.findUnique)
@@ -60,12 +60,9 @@ describe('POST /cars — notification CAR_AVAILABLE', () => {
     mockCarCreate.mockResolvedValue({ seats: 3, passengers: [] })
     mockUserFindUnique.mockResolvedValue({ name: 'Alice' })
 
-    const req = {
-      body: { sessionId: 'session-1', seats: 3 },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { sessionId: 'session-1', seats: 3 }, user: { userId: 'user-1' } })
 
-    await addCarHandler(req, mockRes as unknown as Response, mockNext)
+    await addCarHandler(req, asRes(mockRes), mockNext)
 
     expect(mockRes.status).toHaveBeenCalledWith(201)
     expect(mockNext).not.toHaveBeenCalled()
@@ -92,12 +89,9 @@ describe('POST /cars — notification CAR_AVAILABLE', () => {
     mockCarCreate.mockResolvedValue({ seats: 4, passengers: [{ userId: 'user-2' }] })
     mockUserFindUnique.mockResolvedValue({ name: 'Bob' })
 
-    const req = {
-      body: { sessionId: 'session-1', seats: 4 },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { sessionId: 'session-1', seats: 4 }, user: { userId: 'user-1' } })
 
-    await addCarHandler(req, mockRes as unknown as Response, mockNext)
+    await addCarHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -117,12 +111,9 @@ describe('POST /cars — notification CAR_AVAILABLE', () => {
     mockCarCreate.mockResolvedValue({ seats: 1, passengers: [] })
     mockUserFindUnique.mockResolvedValue({ name: 'Bob' })
 
-    const req = {
-      body: { sessionId: 'session-1', seats: 1 },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { sessionId: 'session-1', seats: 1 }, user: { userId: 'user-1' } })
 
-    await addCarHandler(req, mockRes as unknown as Response, mockNext)
+    await addCarHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -142,12 +133,9 @@ describe('POST /cars — notification CAR_AVAILABLE', () => {
     mockCarCreate.mockResolvedValue({ seats: 3, passengers: [] })
     mockUserFindUnique.mockResolvedValue(null)
 
-    const req = {
-      body: { sessionId: 'session-1', seats: 3 },
-      user: { userId: 'user-unknown' },
-    } as unknown as Request
+    const req = makeReq({ body: { sessionId: 'session-1', seats: 3 }, user: { userId: 'user-unknown' } })
 
-    await addCarHandler(req, mockRes as unknown as Response, mockNext)
+    await addCarHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -165,12 +153,9 @@ describe('POST /cars — notification CAR_AVAILABLE', () => {
     mockGroupMemberFindUnique.mockResolvedValue(memberRole)
     mockCarFindUnique.mockResolvedValue({ id: 'car-existing' })
 
-    const req = {
-      body: { sessionId: 'session-1', seats: 3 },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { sessionId: 'session-1', seats: 3 }, user: { userId: 'user-1' } })
 
-    await addCarHandler(req, mockRes as unknown as Response, mockNext)
+    await addCarHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 400 }))
     expect(mockNotifyGroupMembers).not.toHaveBeenCalled()
@@ -179,12 +164,9 @@ describe('POST /cars — notification CAR_AVAILABLE', () => {
   it("retourne 404 si la session n'existe pas", async () => {
     mockSessionFindUnique.mockResolvedValue(null)
 
-    const req = {
-      body: { sessionId: 'session-inexistante', seats: 3 },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ body: { sessionId: 'session-inexistante', seats: 3 }, user: { userId: 'user-1' } })
 
-    await addCarHandler(req, mockRes as unknown as Response, mockNext)
+    await addCarHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }))
     expect(mockNotifyGroupMembers).not.toHaveBeenCalled()
@@ -194,12 +176,9 @@ describe('POST /cars — notification CAR_AVAILABLE', () => {
     mockSessionFindUnique.mockResolvedValue(futureSession)
     mockGroupMemberFindUnique.mockResolvedValue(null)
 
-    const req = {
-      body: { sessionId: 'session-1', seats: 3 },
-      user: { userId: 'user-outsider' },
-    } as unknown as Request
+    const req = makeReq({ body: { sessionId: 'session-1', seats: 3 }, user: { userId: 'user-outsider' } })
 
-    await addCarHandler(req, mockRes as unknown as Response, mockNext)
+    await addCarHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 403 }))
     expect(mockNotifyGroupMembers).not.toHaveBeenCalled()

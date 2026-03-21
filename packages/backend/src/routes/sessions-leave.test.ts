@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Request, Response, NextFunction } from 'express'
+import { NextFunction } from 'express'
 import '../middleware/auth.js'
 
 vi.mock('../lib/prisma.js', () => ({
@@ -17,7 +17,7 @@ vi.mock('../notifications/notification.service.js', () => ({
 
 import { prisma } from '../lib/prisma.js'
 import { notifyGroupMembers } from '../notifications/notification.service.js'
-import { makeRes } from './test-utils.js'
+import { makeRes, makeReq, asRes } from './test-utils.js'
 import { leaveSessionHandler } from './sessions.js'
 
 const mockPassengerFindUnique = vi.mocked(prisma.passenger.findUnique)
@@ -54,12 +54,9 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
     mockUserFindUnique.mockResolvedValue({ name: 'Alice' })
     mockSessionFindUnique.mockResolvedValue(sessionInfo)
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-1' } })
 
-    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, asRes(mockRes), mockNext)
 
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Left session' })
     expect(mockNext).not.toHaveBeenCalled()
@@ -84,12 +81,9 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
     mockUserFindUnique.mockResolvedValue({ name: 'Bob' })
     mockSessionFindUnique.mockResolvedValue(sessionInfo)
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-1' } })
 
-    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -106,12 +100,9 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
     mockPassengerFindUnique.mockResolvedValue(existingPassenger)
     mockCarFindUnique.mockResolvedValue(null) // pas de voiture
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-1' } })
 
-    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, asRes(mockRes), mockNext)
 
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Left session' })
 
@@ -126,12 +117,9 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
     mockUserFindUnique.mockResolvedValue(null) // user inconnu
     mockSessionFindUnique.mockResolvedValue(sessionInfo)
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-unknown' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-unknown' } })
 
-    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, asRes(mockRes), mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -150,12 +138,9 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
     mockUserFindUnique.mockResolvedValue({ name: 'Alice' })
     mockSessionFindUnique.mockResolvedValue(null) // session disparue entre temps
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-1' } })
 
-    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, asRes(mockRes), mockNext)
 
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Left session' })
 
@@ -166,12 +151,9 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
   it("retourne 404 si l'utilisateur ne participe pas à la séance", async () => {
     mockPassengerFindUnique.mockResolvedValue(null)
 
-    const req = {
-      params: { id: 'session-1' },
-      user: { userId: 'user-1' },
-    } as unknown as Request
+    const req = makeReq({ params: { id: 'session-1' }, user: { userId: 'user-1' } })
 
-    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, asRes(mockRes), mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }))
     expect(mockNotifyGroupMembers).not.toHaveBeenCalled()
