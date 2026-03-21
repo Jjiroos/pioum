@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
 import { prisma } from '../lib/prisma.js'
@@ -547,7 +547,7 @@ sessionsRouter.post('/:id/join', authenticate, async (req, res, next) => {
 })
 
 // Leave session
-sessionsRouter.delete('/:id/leave', authenticate, async (req, res, next) => {
+export async function leaveSessionHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const sessionId = req.params.id as string
 
@@ -597,7 +597,9 @@ sessionsRouter.delete('/:id/leave', authenticate, async (req, res, next) => {
   } catch (error) {
     next(error)
   }
-})
+}
+
+sessionsRouter.delete('/:id/leave', authenticate, leaveSessionHandler)
 
 // Create a session for a specific date
 sessionsRouter.post('/', authenticate, async (req, res, next) => {

@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Request, Response, NextFunction } from 'express'
-import { AppError } from '../middleware/errorHandler.js'
 import '../middleware/auth.js'
 
 vi.mock('../lib/prisma.js', () => ({
@@ -10,6 +9,7 @@ vi.mock('../lib/prisma.js', () => ({
     car: { findUnique: vi.fn(), create: vi.fn() },
     passenger: { upsert: vi.fn() },
     user: { findUnique: vi.fn() },
+    userCar: { findUnique: vi.fn() },
   },
 }))
 
@@ -20,7 +20,7 @@ vi.mock('../notifications/notification.service.js', () => ({
 import { prisma } from '../lib/prisma.js'
 import { notifyGroupMembers } from '../notifications/notification.service.js'
 import { makeRes } from './test-utils.js'
-import { formatSessionDate } from '../lib/formatDate.js'
+import { addCarHandler } from './cars.js'
 
 const mockSessionFindUnique = vi.mocked(prisma.session.findUnique)
 const mockGroupMemberFindUnique = vi.mocked(prisma.groupMember.findUnique)
@@ -40,65 +40,6 @@ const futureSession = {
 }
 
 const memberRole = { role: 'member' }
-
-/**
- * Extracted handler — mirrors POST /cars in cars.ts
- */
-async function addCarHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const { sessionId, seats: providedSeats } = req.body as { sessionId: string; seats?: number }
-
-    const session = await prisma.session.findUnique({ where: { id: sessionId } })
-    if (!session) throw new AppError(404, 'Session not found')
-
-    const membership = await prisma.groupMember.findUnique({
-      where: { userId_groupId: { userId: req.user!.userId, groupId: session.groupId } },
-    })
-    if (!membership) throw new AppError(403, 'Not a member of this group')
-
-    const isLocked = new Date() >= session.startTime
-    if (isLocked && membership.role !== 'admin') {
-      throw new AppError(403, 'Les inscriptions sont fermées pour cette séance')
-    }
-
-    const existingCar = await prisma.car.findUnique({
-      where: { sessionId_driverId: { sessionId, driverId: req.user!.userId } },
-    })
-    if (existingCar) throw new AppError(400, 'Already have a car in this session')
-
-    const seats = providedSeats ?? 3
-
-    await prisma.passenger.upsert({
-      where: { sessionId_userId: { sessionId, userId: req.user!.userId } },
-      create: { sessionId, userId: req.user!.userId },
-      update: {},
-    })
-
-    const car = await prisma.car.create({
-      data: { sessionId, driverId: req.user!.userId, seats },
-      include: { passengers: true },
-    })
-
-    res.status(201).json({ car })
-
-    // Fire-and-forget notification (same pattern as production code)
-    prisma.user
-      .findUnique({ where: { id: req.user!.userId }, select: { name: true } })
-      .then((driver) => {
-        const driverName = driver?.name ?? "Quelqu'un"
-        const availableSeats = car.seats - car.passengers.length
-        return notifyGroupMembers(session.groupId, req.user!.userId, {
-          title: '🚗 Une voiture est disponible !',
-          body: `${driverName} propose sa voiture pour la séance du ${formatSessionDate(session.date)}. Il reste ${availableSeats} place${availableSeats > 1 ? 's' : ''} disponible${availableSeats > 1 ? 's' : ''}.`,
-          url: `/groups/${session.groupId}`,
-          type: 'CAR_AVAILABLE',
-        })
-      })
-      .catch(() => { /* silencieux en production */ })
-  } catch (error) {
-    next(error)
-  }
-}
 
 describe('POST /cars — notification CAR_AVAILABLE', () => {
   let mockRes: ReturnType<typeof makeRes>

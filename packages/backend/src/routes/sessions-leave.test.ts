@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Request, Response, NextFunction } from 'express'
-import { AppError } from '../middleware/errorHandler.js'
 import '../middleware/auth.js'
 
 vi.mock('../lib/prisma.js', () => ({
@@ -19,7 +18,7 @@ vi.mock('../notifications/notification.service.js', () => ({
 import { prisma } from '../lib/prisma.js'
 import { notifyGroupMembers } from '../notifications/notification.service.js'
 import { makeRes } from './test-utils.js'
-import { formatSessionDate } from '../lib/formatDate.js'
+import { leaveSessionHandler } from './sessions.js'
 
 const mockPassengerFindUnique = vi.mocked(prisma.passenger.findUnique)
 const mockPassengerDelete = vi.mocked(prisma.passenger.delete)
@@ -35,49 +34,6 @@ const existingPassenger = { id: 'passenger-1' }
 const existingCar = { id: 'car-1' }
 const sessionInfo = { date: sessionDate, groupId: 'group-1' }
 
-/**
- * Extracted handler — mirrors DELETE /sessions/:id/leave in sessions.ts
- */
-async function leaveHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const sessionId = req.params.id
-
-    const passenger = await prisma.passenger.findUnique({
-      where: { sessionId_userId: { sessionId, userId: req.user!.userId } },
-    })
-    if (!passenger) throw new AppError(404, 'Not participating in this session')
-
-    const driverCar = await prisma.car.findUnique({
-      where: { sessionId_driverId: { sessionId, driverId: req.user!.userId } },
-    })
-
-    await prisma.car.deleteMany({ where: { sessionId, driverId: req.user!.userId } })
-    await prisma.passenger.delete({ where: { id: passenger.id } })
-
-    res.json({ message: 'Left session' })
-
-    // Fire-and-forget notification uniquement si l'utilisateur était chauffeur
-    if (driverCar) {
-      Promise.all([
-        prisma.user.findUnique({ where: { id: req.user!.userId }, select: { name: true } }),
-        prisma.session.findUnique({ where: { id: sessionId }, select: { date: true, groupId: true } }),
-      ])
-        .then(([driver, session]) => {
-          if (!session) return
-          const driverName = driver?.name ?? 'Le chauffeur'
-          return notifyGroupMembers(session.groupId, req.user!.userId, {
-            title: "🚨 Un chauffeur s'est désisté !",
-            body: `${driverName} s'est désisté de la séance du ${formatSessionDate(session.date)}, pas fiable le golem…`,
-            url: `/groups/${session.groupId}`,
-            type: 'DRIVER_LEFT',
-          })
-        })
-        .catch(() => { /* silencieux en production */ })
-    }
-  } catch (error) {
-    next(error)
-  }
-}
 
 describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
   let mockRes: ReturnType<typeof makeRes>
@@ -103,7 +59,7 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
       user: { userId: 'user-1' },
     } as unknown as Request
 
-    await leaveHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
 
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Left session' })
     expect(mockNext).not.toHaveBeenCalled()
@@ -133,7 +89,7 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
       user: { userId: 'user-1' },
     } as unknown as Request
 
-    await leaveHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -155,7 +111,7 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
       user: { userId: 'user-1' },
     } as unknown as Request
 
-    await leaveHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
 
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Left session' })
 
@@ -175,7 +131,7 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
       user: { userId: 'user-unknown' },
     } as unknown as Request
 
-    await leaveHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
 
     await vi.waitFor(() => expect(mockNotifyGroupMembers).toHaveBeenCalled())
 
@@ -199,7 +155,7 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
       user: { userId: 'user-1' },
     } as unknown as Request
 
-    await leaveHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
 
     expect(mockRes.json).toHaveBeenCalledWith({ message: 'Left session' })
 
@@ -215,7 +171,7 @@ describe('DELETE /sessions/:id/leave — notification DRIVER_LEFT', () => {
       user: { userId: 'user-1' },
     } as unknown as Request
 
-    await leaveHandler(req, mockRes as unknown as Response, mockNext)
+    await leaveSessionHandler(req, mockRes as unknown as Response, mockNext)
 
     expect(mockNext).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 404 }))
     expect(mockNotifyGroupMembers).not.toHaveBeenCalled()

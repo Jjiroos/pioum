@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { USER_SELECT } from '../lib/prismaSelects.js'
@@ -25,7 +25,7 @@ function isSessionLocked(session: { startTime: Date }): boolean {
 }
 
 // Add a car to a session
-carsRouter.post('/', authenticate, async (req, res, next) => {
+export async function addCarHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { sessionId, seats: providedSeats, userCarId } = createCarSchema.parse(req.body)
 
@@ -157,7 +157,9 @@ carsRouter.post('/', authenticate, async (req, res, next) => {
   } catch (error) {
     next(error)
   }
-})
+}
+
+carsRouter.post('/', authenticate, addCarHandler)
 
 // Update car seats
 carsRouter.patch('/:id', authenticate, async (req, res, next) => {
