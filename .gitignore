@@ -58,3 +58,4 @@ packages/frontend/public/dev-sw.js
 backups/
 *.sql
 *.sql.gz
+!packages/backend/prisma/migrations/**/*.sql
