@@ -47,6 +47,13 @@ logs/
 *.tgz
 .turbo
 
+# Compiled Vite config artifacts (source of truth is vite.config.ts)
+packages/frontend/vite.config.js
+packages/frontend/vite.config.d.ts
+
+# Dev-only service worker (not for production)
+packages/frontend/public/dev-sw.js
+
 # Deployment
 backups/
 *.sql

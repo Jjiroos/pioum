@@ -1,9 +1,11 @@
-import { Router } from 'express'
+import { Router, Request, Response, NextFunction } from 'express'
 import { z } from 'zod'
 import { prisma } from '../lib/prisma.js'
 import { USER_SELECT } from '../lib/prismaSelects.js'
 import { authenticate } from '../middleware/auth.js'
 import { AppError } from '../middleware/errorHandler.js'
+import { notifyGroupMembers } from '../notifications/notification.service.js'
+import { formatSessionDate } from '../lib/formatDate.js'
 
 export const carsRouter = Router()
 
@@ -23,7 +25,7 @@ function isSessionLocked(session: { startTime: Date }): boolean {
 }
 
 // Add a car to a session
-carsRouter.post('/', authenticate, async (req, res, next) => {
+export async function addCarHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { sessionId, seats: providedSeats, userCarId } = createCarSchema.parse(req.body)
 
@@ -136,10 +138,28 @@ carsRouter.post('/', authenticate, async (req, res, next) => {
     })
 
     res.status(201).json({ car })
+
+    // Notifier les membres du groupe qu'une voiture est disponible (fire-and-forget)
+    prisma.user.findUnique({ where: { id: req.user!.userId }, select: { name: true } })
+      .then((driver) => {
+        const driverName = driver?.name ?? 'Quelqu\'un'
+        const availableSeats = car.seats - car.passengers.length
+        return notifyGroupMembers(session.groupId, req.user!.userId, {
+          title: '🚗 Une voiture est disponible !',
+          body: `${driverName} propose sa voiture pour la séance du ${formatSessionDate(session.date)}. Il reste ${availableSeats} place${availableSeats > 1 ? 's' : ''} disponible${availableSeats > 1 ? 's' : ''}.`,
+          url: `/groups/${session.groupId}`,
+          type: 'CAR_AVAILABLE',
+        })
+      })
+      .catch((err: unknown) => {
+        console.error('[Pioum] Erreur envoi notification voiture:', err)
+      })
   } catch (error) {
     next(error)
   }
-})
+}
+
+carsRouter.post('/', authenticate, addCarHandler)
 
 // Update car seats
 carsRouter.patch('/:id', authenticate, async (req, res, next) => {
