@@ -13,6 +13,13 @@ import { bansRouter } from './routes/bans.js'
 import { avatarsRouter } from './routes/avatars.js'
 import { userCarsRouter } from './routes/userCars.js'
 import { recurrencePatternsRouter } from './routes/recurrencePatterns.js'
+import { notificationsRouter } from './notifications/notification.controller.js'
+import { validateNotificationConfig } from './notifications/notification.service.js'
+
+// Valider la config push notifications au démarrage si configurée
+if (process.env.VAPID_PRIVATE_KEY_JWK) {
+  validateNotificationConfig()
+}
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -58,6 +65,7 @@ app.use('/api/bans', bansRouter)
 app.use('/api/avatars', avatarsRouter)
 app.use('/api/user-cars', userCarsRouter)
 app.use('/api', recurrencePatternsRouter)
+app.use('/api/notifications', notificationsRouter)
 
 // Error handler
 app.use(errorHandler)

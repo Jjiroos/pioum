@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",
+    "@pushforge/builder": "^2.0.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
