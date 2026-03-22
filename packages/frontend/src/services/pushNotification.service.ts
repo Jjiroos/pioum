@@ -23,7 +23,8 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     throw new Error('Service Workers non supportés sur ce navigateur')
   }
   const swUrl = import.meta.env.DEV ? '/dev-sw.js' : '/sw.js'
-  return navigator.serviceWorker.register(swUrl)
+  await navigator.serviceWorker.register(swUrl)
+  return navigator.serviceWorker.ready
 }
 
 export async function subscribeToPush(
