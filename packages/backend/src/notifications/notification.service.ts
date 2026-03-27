@@ -10,11 +10,23 @@ export type WebPushSubscription = {
   }
 }
 
+export const NOTIFICATION_TYPES = [
+  'NEW_INSCRIPTION',
+  'NEW_WITHDRAWAL',
+  'CAR_AVAILABLE',
+  'NO_CAR',
+  'DRIVER_LEFT',
+  'USER_BANNED',
+  'PASSENGER_JOINED',
+  'PASSENGER_LEFT',
+  'PASSENGER_KICKED',
+] as const
+
 export type PioumNotificationPayload = {
   title: string
   body: string
   url: string
-  type: 'NEW_INSCRIPTION' | 'NEW_WITHDRAWAL' | 'CAR_AVAILABLE' | 'NO_CAR' | 'DRIVER_LEFT' | 'USER_BANNED' | 'PASSENGER_JOINED' | 'PASSENGER_LEFT' | 'PASSENGER_KICKED'
+  type: typeof NOTIFICATION_TYPES[number]
 }
 
 // ── VAPID key ──────────────────────────────────────────────────────────────
@@ -83,9 +95,11 @@ export async function removeSubscription(userId: string): Promise<void> {
 
 // ── Push sending ───────────────────────────────────────────────────────────
 
-type PushRecord = { userId: string; endpoint: string; p256dh: string; auth: string }
+type PushRecord = { userId: string; endpoint: string; p256dh: string; auth: string; enabledTypes: string[] }
 
 async function sendPushToRecord(record: PushRecord, payload: PioumNotificationPayload): Promise<void> {
+  // [] = opt-out (tous activés) — sinon vérifier que le type est dans la liste
+  if (record.enabledTypes.length > 0 && !record.enabledTypes.includes(payload.type)) return
   const sub: WebPushSubscription = {
     endpoint: record.endpoint,
     keys: { p256dh: record.p256dh, auth: record.auth },

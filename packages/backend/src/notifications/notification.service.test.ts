@@ -124,6 +124,7 @@ describe('notifyUser', () => {
       endpoint: mockSub.endpoint,
       p256dh: mockSub.keys.p256dh,
       auth: mockSub.keys.auth,
+      enabledTypes: [],
     })
     mockBuildPushHTTPRequest.mockResolvedValue({
       endpoint: mockSub.endpoint,
@@ -155,6 +156,7 @@ describe('notifyUser', () => {
       endpoint: mockSub.endpoint,
       p256dh: mockSub.keys.p256dh,
       auth: mockSub.keys.auth,
+      enabledTypes: [],
     })
     mockBuildPushHTTPRequest.mockResolvedValue({
       endpoint: mockSub.endpoint,
@@ -175,6 +177,7 @@ describe('notifyUser', () => {
       endpoint: mockSub.endpoint,
       p256dh: mockSub.keys.p256dh,
       auth: mockSub.keys.auth,
+      enabledTypes: [],
     })
     mockBuildPushHTTPRequest.mockResolvedValue({
       endpoint: mockSub.endpoint,
